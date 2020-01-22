@@ -151,6 +151,52 @@ proc count*[T:Interval](L:var Lapper[T], start:int, stop:int): int =
       result.inc
     elif x.start >= stop: break
 
+proc find_nearest_upstream*[T:Interval](L:var Lapper[T], pos:int, ivs:var seq[T]): bool =
+  ## Find nearest upstream interval (left)
+  shallow(L.intervals)
+  var 
+    i = lowerBound(L.intervals, pos)
+    max_stop = -1
+    candidates: seq[T]
+  
+  # While we have not found an interval or we could find one that will have
+  # a higher stop position as our current candidate
+  while i >= 0 and (max_stop == -1 or (max_stop - L.intervals[i].start) < L.max_len):
+    # We want intervals that are not ovelapping our posion
+    # Note: Stop is half-open (not included)
+    if L.intervals[i].stop <= pos: 
+      if max_stop == -1 or L.intervals[i].stop > max_stop:
+        max_stop = L.intervals[i].stop
+        candidates.setLen(0)
+        candidates.add(L.intervals[i])
+      elif  L.intervals[i].stop == max_stop:
+        candidates.add(L.intervals[i])
+    dec(i)
+
+  for c in candidates:
+    ivs.add(c)
+  
+  return ivs.len() > 0
+
+proc find_nearest_downstream*[T:Interval](L:var Lapper[T], pos:int, ivs:var seq[T]): bool =
+  ## Find nearest upstream interval (left)
+  shallow(L.intervals)
+  var 
+    i = lowerBound(L.intervals, pos)
+    min_start = -1
+  
+  # While we have not found an interval or we could find one that will have
+  # a higher stop position as our current candidate
+  while i <= L.intervals.high and (min_start == -1 or L.intervals[i].start == min_start):
+    # We want intervals that are not ovelapping our posion
+    # Note: Stop is half-open (not included)
+    if L.intervals[i].start > pos:
+      min_start =  L.intervals[i].start
+      ivs.add(L.intervals[i])
+    inc(i)
+  
+  return ivs.len() > 0
+
 proc each_find*[T:Interval](L:var Lapper[T], start:int, stop:int, fn: proc (v:T)) =
   ## call fn(x) for each interval x in L that overlaps start..stop
   var off = lowerBound(L.intervals, start - L.max_len)
